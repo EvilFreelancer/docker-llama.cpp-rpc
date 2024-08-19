@@ -1,0 +1,68 @@
+version: "3.9"
+
+x-shared-logs: &shared-logs
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10k"
+
+x-shared-deploy: &shared-deploy
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [ gpu ]
+  <<: *shared-logs
+
+services:
+
+  main:
+    #network_mode: "host"
+    restart: "unless-stopped"
+    #entrypoint: "sleep inf"
+    build:
+      context: ./llama.cpp
+      args:
+        - LLAMACPP_VERSION=b3600
+    volumes:
+      - ./models:/app/models
+    environment:
+      # Режим RPC клиента
+      MODE: none
+    ports:
+      - "127.0.0.1:8888:8080"
+    <<: *shared-logs
+
+  backend-cpu:
+    restart: "unless-stopped"
+    #entrypoint: "sleep inf"
+    build:
+      context: ./llama.cpp
+      args:
+        - LLAMACPP_VERSION=b3600
+    environment:
+      # Режим RPC бэкенда
+      MODE: backend
+    ports:
+      - "127.0.0.1:50152:50052"
+    <<: *shared-logs
+
+  backend-cuda:
+    restart: "unless-stopped"
+    #entrypoint: "sleep inf"
+    build:
+      context: ./llama.cpp
+      dockerfile: Dockerfile.cuda
+      args:
+        # В качестве версии можно указать: тег, ветку или коммит
+        - LLAMACPP_VERSION=b3600
+    environment:
+      # Вы можете указать, какое CUDA-устройство использовать
+      CUDA_VISIBLE_DEVICES: 0
+      # Режим RPC бэкенда
+      MODE: backend
+    ports:
+      - "127.0.0.1:50252:50052"
+    <<: *shared-deploy
