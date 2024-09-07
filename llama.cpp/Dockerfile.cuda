@@ -26,8 +26,7 @@ WORKDIR /app/llama.cpp/build-rpc
 RUN ln -s /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1
 RUN set -xe \
  && export LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs/:$LD_LIBRARY_PATH \
- && cmake .. -DGGML_CUDA=ON -DGGML_RPC=ON \
- && MAKEFLAGS=-j$(nproc) cmake --build . --config Release
+ && GGML_CUDA=ON GGML_RPC=ON make -j$(nproc) llama-server llama-cli rpc-server libggml.so libllama.so
 
 
 

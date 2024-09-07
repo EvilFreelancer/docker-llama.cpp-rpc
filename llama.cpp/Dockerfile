@@ -22,10 +22,9 @@ RUN set -xe \
  && git clone --branch "$LLAMACPP_VERSION" --depth 1 "$LLAMACPP_REPO"
 
 # Build binaries
-WORKDIR /app/llama.cpp/build-rpc
+WORKDIR /app/llama.cpp
 RUN set -xe \
- && cmake .. -DGGML_RPC=ON \
- && MAKEFLAGS=-j$(nproc) cmake --build . --config Release
+ && GGML_RPC=ON make -j$(nproc) llama-server llama-cli rpc-server libggml.so libllama.so
 
 
 
@@ -43,11 +42,11 @@ RUN set -xe \
  && mkdir -pv /app/models
 
 # Copy compiled tools
-COPY --from=builder /app/llama.cpp/build-rpc/src/libllama.so /usr/lib/x86_64-linux-gnu
-COPY --from=builder /app/llama.cpp/build-rpc/ggml/src/libggml.so /usr/lib/x86_64-linux-gnu
-COPY --from=builder /app/llama.cpp/build-rpc/bin/rpc-server .
-COPY --from=builder /app/llama.cpp/build-rpc/bin/llama-cli .
-COPY --from=builder /app/llama.cpp/build-rpc/bin/llama-server .
+COPY --from=builder /app/llama.cpp/libllama.so /usr/lib/x86_64-linux-gnu
+COPY --from=builder /app/llama.cpp/libggml.so /usr/lib/x86_64-linux-gnu
+COPY --from=builder /app/llama.cpp/rpc-server .
+COPY --from=builder /app/llama.cpp/llama-cli .
+COPY --from=builder /app/llama.cpp/llama-server .
 
 # Init entrypoint
 ADD entrypoint.sh .

@@ -4,7 +4,7 @@ cd "$(dirname "$0")"
 
 [ "x$MODE" = "x" ] && export MODE="backend"
 [ "x$APP_BIND" = "x" ] && export APP_BIND="0.0.0.0"
-#[ "x$APP_MEM" = "x" ] && export APP_MEM="2048"
+[ "x$APP_MEM" = "x" ] && export APP_MEM="1024"
 [ "x$APP_RPC" = "x" ] && export APP_RPC_BACKENDS="backend-cuda:50052,backend-cpu:50052"
 [ "x$APP_MODEL" = "x" ] && export APP_MODEL="/app/models/TinyLlama-1.1B-F16.gguf"
 [ "x$APP_REPEAT_PENALTY" = "x" ] && export APP_REPEAT_PENALTY="1.0"
@@ -17,7 +17,7 @@ if [ "$MODE" = "backend" ]; then
     CMD="/app/rpc-server"
     CMD+=" --host $APP_BIND"
     CMD+=" --port $APP_PORT"
-    #CMD+=" --mem $APP_MEM"
+    CMD+=" --mem $APP_MEM"
 elif [ "$MODE" = "server" ]; then
     [ "x$APP_PORT" = "x" ] && export APP_PORT="8080"
     # API server connected to multipla backends
