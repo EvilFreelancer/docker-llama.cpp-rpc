@@ -7,6 +7,7 @@ cd "$(dirname "$0")"
 #[ "x$APP_MEM" = "x" ] && export APP_MEM="2048"
 [ "x$APP_RPC" = "x" ] && export APP_RPC_BACKENDS="backend-cuda:50052,backend-cpu:50052"
 [ "x$APP_MODEL" = "x" ] && export APP_MODEL="/app/models/TinyLlama-1.1B-F16.gguf"
+[ "x$APP_REPEAT_PENALTY" = "x" ] && export APP_REPEAT_PENALTY="1.0"
 [ "x$APP_GPU_LAYERS" = "x" ] && export APP_GPU_LAYERS="99"
 
 # Construct the command with the options
@@ -24,7 +25,7 @@ elif [ "$MODE" = "server" ]; then
     CMD+=" --host $APP_BIND"
     CMD+=" --port $APP_PORT"
     CMD+=" --model $APP_MODEL"
-    CMD+=" --repeat-penalty 1.0"
+    CMD+=" --repeat-penalty $APP_REPEAT_PENALTY"
     CMD+=" --rpc $APP_RPC_BACKENDS"
     CMD+=" --gpu-layers $APP_GPU_LAYERS"
 elif [ "$MODE" = "none" ]; then
