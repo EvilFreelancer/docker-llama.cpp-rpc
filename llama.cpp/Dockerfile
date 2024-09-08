@@ -24,7 +24,7 @@ RUN set -xe \
 # Build binaries
 WORKDIR /app/llama.cpp
 RUN set -xe \
- && GGML_RPC=ON make -j$(nproc) llama-server llama-cli rpc-server libggml.so libllama.so
+ && GGML_RPC=ON make -j$(nproc) llama-server llama-cli llama-embedding rpc-server libggml.so libllama.so
 
 
 
