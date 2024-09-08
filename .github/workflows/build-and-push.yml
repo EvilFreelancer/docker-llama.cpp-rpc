@@ -35,6 +35,12 @@ jobs:
           owner: ggerganov
           repo: llama.cpp
 
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Compare tags
         run: |
           docker_hub_tags="${{ steps.docker_hub_tags.outputs.result }}"
