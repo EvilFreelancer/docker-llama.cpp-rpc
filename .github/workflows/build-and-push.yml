@@ -45,10 +45,25 @@ jobs:
 
           docker buildx create --name my_builder --driver=docker-container
 
+          # Initialize a variable to track the latest tag
+          latest_tag=""
+
+          # Build and push images with missed tag
           for tag in "${github_releases_array[@]}"; do
             if [[ ! " ${docker_hub_tags_array[*]} " =~ " $tag " ]]; then
               echo "Missing tag: $tag"
-              docker buildx build --builder=my_builder --push --platform=linux/amd64,linux/arm64,linux/arm/v7 --build-arg LLAMACPP_VERSION=${tag} --tag=evilfreelancer/llama.cpp-rpc:${tag} ./llama.cpp/
-              docker buildx build --builder=my_builder --push --platform=linux/amd64 --file ./llama.cpp/Dockerfile.cuda --build-arg LLAMACPP_VERSION=${tag} --tag=evilfreelancer/llama.cpp-rpc:${tag}-cuda ./llama.cpp/
+              docker buildx build --builder=my_builder --push --platform=linux/amd64,linux/arm64,linux/arm/v7 --build-arg LLAMACPP_VERSION=${tag} --tag=${evilfreelancer}/${repo}:${tag} ./llama.cpp/
+              docker buildx build --builder=my_builder --push --platform=linux/amd64 --file ./llama.cpp/Dockerfile.cuda --build-arg LLAMACPP_VERSION=${tag} --tag=${evilfreelancer}/${repo}:${tag}-cuda ./llama.cpp/
+              latest_tag=$tag
             fi
           done
+
+          # Tagging the latest version as 'latest'
+          if [ ! -z "$latest_tag" ]; then
+            echo "Tagging the latest version as 'latest': $latest_tag"
+            docker buildx build --builder=my_builder --push --platform=linux/amd64,linux/arm64,linux/arm/v7 --build-arg LLAMACPP_VERSION=${latest_tag} --tag=evilfreelancer/llama.cpp-rpc:latest ./llama.cpp/
+            docker buildx build --builder=my_builder --push --platform=linux/amd64 --file ./llama.cpp/Dockerfile.cuda --build-arg LLAMACPP_VERSION=${latest_tag} --tag=evilfreelancer/llama.cpp-rpc:latest-cuda ./llama.cpp/
+          fi
+        env:
+          owner: evilfreelancer
+          repo: llama.cpp-rpc
