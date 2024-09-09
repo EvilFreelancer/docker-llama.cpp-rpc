@@ -16,9 +16,10 @@
 
 ## Пример docker-compose.yml
 
-В данном примере происходит запуск `llama-server` (контейнер `main`) и инициализация модели `TinyLlama-1.1B-q4_0.gguf`,
-которая расположена в директории `./models` на одном уровне с `docker-compose.yml`. Директория `./models` в свою очередь
-монтируется внутрь контейнера `main` и доступна по пути `/app/models`.
+В данном примере происходит запуск `llama-server` (контейнер `main`) и инициализация
+модели [TinyLlama-1.1B-q4_0.gguf](https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/tree/main),
+которая была заранее загружена в директорию `./models`, расположенную на одном уровне с `docker-compose.yml`. Директория
+`./models` в свою очередь монтируется внутрь контейнера `main` и доступна по пути `/app/models`.
 
 ```yaml
 version: "3.9"
