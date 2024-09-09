@@ -19,9 +19,8 @@ x-shared-deploy: &shared-deploy
 services:
 
   main:
-    #network_mode: "host"
+    image: evilfreelancer/llama.cpp-rpc:latest
     restart: "unless-stopped"
-    #entrypoint: "sleep inf"
     build:
       context: ./llama.cpp
       args:
@@ -36,12 +35,12 @@ services:
     <<: *shared-logs
 
   backend-cpu:
+    image: evilfreelancer/llama.cpp-rpc:latest
     restart: "unless-stopped"
-    #entrypoint: "sleep inf"
-    build:
-      context: ./llama.cpp
-      args:
-        - LLAMACPP_VERSION=b3600
+    #build:
+    #  context: ./llama.cpp
+    #  args:
+    #    - LLAMACPP_VERSION=b3700
     environment:
       # Режим RPC бэкенда
       MODE: backend
@@ -50,14 +49,13 @@ services:
     <<: *shared-logs
 
   backend-cuda:
+    image: evilfreelancer/llama.cpp-rpc:latest-cuda
     restart: "unless-stopped"
-    #entrypoint: "sleep inf"
-    build:
-      context: ./llama.cpp
-      dockerfile: Dockerfile.cuda
-      args:
-        # В качестве версии можно указать: тег, ветку или коммит
-        - LLAMACPP_VERSION=b3600
+    #build:
+    #  context: ./llama.cpp
+    #  dockerfile: Dockerfile.cuda
+    #  args:
+    #    - LLAMACPP_VERSION=b3700
     environment:
       # Вы можете указать, какое CUDA-устройство использовать
       CUDA_VISIBLE_DEVICES: 0

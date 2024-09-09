@@ -37,6 +37,8 @@ services:
       APP_MODEL: /app/models/TinyLlama-1.1B-q4_0.gguf
       # Адреса RPC-серверов с которыми будет взаимодействовать клиент
       APP_RPC_BACKENDS: backend-cuda:50052,backend-cpu:50052
+    ports:
+      - "127.0.0.1:8080:8080"
 
   backend-cpu:
     image: evilfreelancer/llama.cpp-rpc:latest
@@ -44,7 +46,7 @@ services:
     environment:
       # Режим работы (RPC-сервер)
       APP_MODE: backend
-      # Количество доступной RPC-серверу оперативной памяти (в Мегабайтах)
+      # Количество доступной RPC-серверу системной оперативной памяти (в Мегабайтах)
       APP_MEM: 2048
 
   backend-cuda:
@@ -53,7 +55,7 @@ services:
     environment:
       # Режим работы (RPC-сервер)
       APP_MODE: backend
-      # Количество доступной RPC-серверу оперативной памяти (в Мегабайтах)
+      # Количество доступной RPC-серверу оперативной памяти видеокарты (в Мегабайтах)
       APP_MEM: 1024
     deploy:
       resources:
@@ -69,6 +71,16 @@ services:
 В результате чего у нас получается следующего вида схема:
 
 ![schema-example](./assets/schema-example.png)
+
+После её запуска можно будет делать такого вида HTTP запросы:
+
+```shell
+curl \
+    --request POST \
+    --url http://localhost:8080/completion \
+    --header "Content-Type: application/json" \
+    --data '{"prompt": "Building a website can be done in 10 simple steps:"}'
+```
 
 ## Переменные окружения
 
@@ -107,3 +119,13 @@ docker build ./llama.cpp/ --build-arg LLAMACPP_VERSION=b3700
 # Собрать контейнер из ветки master
 docker build ./llama.cpp/ --build-arg LLAMACPP_VERSION=master
 ```
+
+## Ссылки
+
+- https://github.com/ggerganov/ggml/pull/761
+- https://github.com/ggerganov/llama.cpp/issues/7293
+- https://github.com/ggerganov/llama.cpp/pull/6829
+- https://github.com/ggerganov/llama.cpp/tree/master/examples/rpc
+- https://github.com/mudler/LocalAI/commit/fdb45153fed10d8a2c775633e952fdf02de60461
+- https://github.com/mudler/LocalAI/pull/2324
+- https://github.com/ollama/ollama/issues/4643
