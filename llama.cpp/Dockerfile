@@ -34,7 +34,7 @@ WORKDIR /app
 # Install basic dependencies
 RUN set -xe \
  && apt update -q \
- && apt install -fyq bash wget libgomp1 \
+ && apt install -fyq libgomp1 \
  && apt clean
 
 # Create folders
@@ -46,6 +46,7 @@ COPY --from=builder /app/llama.cpp/libllama.so /usr/lib/x86_64-linux-gnu
 COPY --from=builder /app/llama.cpp/libggml.so /usr/lib/x86_64-linux-gnu
 COPY --from=builder /app/llama.cpp/rpc-server .
 COPY --from=builder /app/llama.cpp/llama-cli .
+COPY --from=builder /app/llama.cpp/llama-embedding .
 COPY --from=builder /app/llama.cpp/llama-server .
 
 # Init entrypoint

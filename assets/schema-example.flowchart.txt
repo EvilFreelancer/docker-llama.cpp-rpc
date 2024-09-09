@@ -1,0 +1,14 @@
+main {
+	llama-server
+		TCP: (.connection)
+}
+
+backend-cpu:50052 {
+	rpc-server .connection
+		backend \(CPU\)
+}
+
+backend-cuda:50052 {
+	rpc-server .connection
+		backend \(CUDA\)
+}

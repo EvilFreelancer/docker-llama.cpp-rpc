@@ -1,0 +1,19 @@
+Main Host {
+	llama-server
+		TCP: (.connection)
+}
+
+Host A {
+	rpc-server .connection
+		backend\n\(CUDA, CPU, etc.\)
+}
+
+Host B {
+	rpc-server .connection
+		backend\n\(CUDA, CPU, etc.\)
+}
+
+Host C {
+	rpc-server .connection
+		backend\n\(CUDA, CPU, etc.\)
+}
