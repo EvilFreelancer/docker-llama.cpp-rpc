@@ -21,15 +21,19 @@ services:
   main:
     image: evilfreelancer/llama.cpp-rpc:latest
     restart: "unless-stopped"
-    build:
-      context: ./llama.cpp
-      args:
-        - LLAMACPP_VERSION=b3600
+    #build:
+    #  context: ./llama.cpp
+    #  args:
+    #    - LLAMACPP_VERSION=b3700
     volumes:
       - ./models:/app/models
     environment:
-      # Режим RPC клиента
-      MODE: none
+      # Режим работы (RPC-клиент в формате API-сервера)
+      APP_MODE: server
+      # Путь до весов, предварительно загруженной модели, внутри контейнера
+      APP_MODEL: /app/models/TinyLlama-1.1B-q4_0.gguf
+      # Адреса RPC-серверов с которыми будет взаимодействовать клиент
+      APP_RPC_BACKENDS: backend-cuda:50052,backend-cpu:50052
     ports:
       - "127.0.0.1:8888:8080"
     <<: *shared-logs
@@ -42,8 +46,10 @@ services:
     #  args:
     #    - LLAMACPP_VERSION=b3700
     environment:
-      # Режим RPC бэкенда
-      MODE: backend
+      # Режим работы (RPC-сервер)
+      APP_MODE: backend
+      # Количество доступной RPC-серверу системной оперативной памяти (в Мегабайтах)
+      APP_MEM: 2048
     ports:
       - "127.0.0.1:50152:50052"
     <<: *shared-logs
@@ -57,10 +63,10 @@ services:
     #  args:
     #    - LLAMACPP_VERSION=b3700
     environment:
-      # Вы можете указать, какое CUDA-устройство использовать
-      CUDA_VISIBLE_DEVICES: 0
-      # Режим RPC бэкенда
-      MODE: backend
+      # Режим работы (RPC-сервер)
+      APP_MODE: backend
+      # Количество доступной RPC-серверу оперативной памяти видеокарты (в Мегабайтах)
+      APP_MEM: 1024
     ports:
       - "127.0.0.1:50252:50052"
     <<: *shared-deploy
