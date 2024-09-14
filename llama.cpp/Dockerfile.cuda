@@ -14,7 +14,7 @@ ARG LLAMACPP_VERSION="master"
 # Install dependencies
 RUN set -xe \
  && apt update -q \
- && apt install -fyq bash wget git make cmake g++ \
+ && apt install -fyq bash wget git make g++ \
  && apt clean
 
 # Clone repo
