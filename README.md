@@ -153,7 +153,7 @@ services:
     volumes:
       - ./models:/app/models
     environment:
-      MODE: none
+      APP_MODE: none
     ports:
       - "8080:8080"
 
@@ -164,7 +164,7 @@ services:
       args:
         - LLAMACPP_VERSION=b3700
     environment:
-      MODE: backend
+      APP_MODE: backend
     ports:
       - "50052:50052"
 ```
@@ -178,3 +178,26 @@ services:
 - https://github.com/mudler/LocalAI/commit/fdb45153fed10d8a2c775633e952fdf02de60461
 - https://github.com/mudler/LocalAI/pull/2324
 - https://github.com/ollama/ollama/issues/4643
+
+## Лицензия
+
+Этот проект лицензирован на условиях лицензии MIT. Подробности в файле [LICENSE](./LICENSE).
+
+## Цитирование
+
+Если вы используете этот проект в своих исследованиях или работе, пожалуйста, укажите ссылку на него следующим образом:
+
+```text
+[Pavel Rykov]. (2024). llama.cpp RPC-server in Docker. GitHub. https://github.com/EvilFreelancer/docker-llama.cpp-rpc
+```
+
+Альтернатива в формате BibTeX:
+
+```text
+@misc{pavelrykov2024llamacpprpc,
+  author = {Pavel Rykov},
+  title  = {llama.cpp RPC-server in Docker},
+  year   = {2024},
+  url    = {https://github.com/EvilFreelancer/docker-llama.cpp-rpc}
+}
+```

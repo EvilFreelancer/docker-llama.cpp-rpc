@@ -177,3 +177,18 @@ services:
 - https://github.com/mudler/LocalAI/commit/fdb45153fed10d8a2c775633e952fdf02de60461
 - https://github.com/mudler/LocalAI/pull/2324
 - https://github.com/ollama/ollama/issues/4643
+
+## Citing
+
+```text
+[Pavel Rykov]. (2024). llama.cpp RPC-server in Docker. GitHub. https://github.com/EvilFreelancer/docker-llama.cpp-rpc
+```
+
+```text
+@misc{pavelrykov2024llamacpprpc,
+  author = {Pavel Rykov},
+  title  = {llama.cpp RPC-server in Docker},
+  year   = {2024},
+  url    = {https://github.com/EvilFreelancer/docker-llama.cpp-rpc}
+}
+```
