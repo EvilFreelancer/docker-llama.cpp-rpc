@@ -35,7 +35,7 @@ services:
       # Адреса RPC-серверов с которыми будет взаимодействовать клиент
       APP_RPC_BACKENDS: backend-cuda:50052,backend-cpu:50052
     ports:
-      - "127.0.0.1:8888:8080"
+      - "127.0.0.1:8080:8080"
     <<: *shared-logs
 
   backend-cpu:
