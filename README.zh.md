@@ -147,7 +147,7 @@ services:
     volumes:
       - ./models:/app/models
     environment:
-      MODE: none
+      APP_MODE: none
     ports:
       - "8080:8080"
 
@@ -158,7 +158,7 @@ services:
       args:
         - LLAMACPP_VERSION=b3700
     environment:
-      MODE: backend
+      APP_MODE: backend
     ports:
       - "50052:50052"
 ```
