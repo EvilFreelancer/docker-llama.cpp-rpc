@@ -27,7 +27,13 @@ if [ "$APP_MODE" = "backend" ]; then
     CMD="/app/rpc-server"
     CMD+=" --host $APP_BIND"
     CMD+=" --port $APP_PORT"
-    CMD+=" --mem $APP_MEM"
+    # Upstream removed --mem (rpc-server reports actual free memory itself,
+    # ggml-org/llama.cpp#16616); pass the flag only to binaries that still
+    # support it, otherwise the server dies with "unknown argument" and the
+    # container ends up in a restart loop.
+    if /app/rpc-server --help 2>&1 | grep -q -- '--mem'; then
+        CMD+=" --mem $APP_MEM"
+    fi
     CMD+=" --threads $APP_THREADS"
     [ -n "$APP_DEVICE" ] && CMD+=" --device $APP_DEVICE"
     [ "$APP_CACHE" = "true" ] && CMD+=" --cache"
