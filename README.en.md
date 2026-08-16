@@ -18,10 +18,10 @@ package.
 
 Docker images are built with support for the following architectures:
 
-* **CPU-only** - amd64, arm64, arm/v7
+* **CPU-only** - amd64, arm64
 * **CUDA** - amd64
 
-Unfortunately, CUDA builds for arm64 fail due to an error, so they are temporarily disabled.
+32-bit arm/v7 is not built, llama.cpp no longer supports this architecture. Binaries in the images are portable. On amd64 the image ships CPU backend variants for different processor generations and the best one is picked at runtime. The CUDA image ships kernels for architectures from Maxwell to Hopper (compute capability 5.0-9.0).
 
 ## Environment Variables
 
@@ -30,7 +30,7 @@ Unfortunately, CUDA builds for arm64 fail due to an error, so they are temporari
 | APP_MODE           | backend                                    | Container operation mode, available options: server, backend, and none                           |
 | APP_BIND           | 0.0.0.0                                    | Interface to bind to                                                                             |
 | APP_PORT           | `8080` for `server`, `50052` for `backend` | Port number on which the server is running                                                       |
-| APP_MEM            | 1024                                       | Amount of MiB of RAM available to the client; in CUDA mode, this is the amount of GPU memory     | 
+| APP_MEM            | 1024                                       | Amount of MiB of RAM available to the client; in CUDA mode, this is the amount of GPU memory. Ignored for builds from llama.cpp b6790 and newer, the RPC server detects free memory itself     | 
 | APP_RPC_BACKENDS   | backend-cuda:50052,backend-cpu:50052       | Comma-separated addresses of backends that the container will try to connect to in `server` mode |
 | APP_MODEL          | /app/models/TinyLlama-1.1B-q4_0.gguf       | Path to the model weights inside the container                                                   | 
 | APP_REPEAT_PENALTY | 1.0                                        | Repeat penalty                                                                                   |

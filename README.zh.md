@@ -16,10 +16,10 @@
 
 Docker镜像支持以下架构：
 
-* 仅CPU - amd64, arm64, arm/v7
+* 仅CPU - amd64, arm64
 * CUDA - amd64
 
-不幸的是，CUDA在arm64上的构建由于错误而失败，因此它们暂时被禁用。
+不再构建32位arm/v7，llama.cpp已不再支持该架构。镜像中的二进制文件是可移植的。在amd64上，镜像内置多个针对不同代处理器的CPU后端变体，启动时自动选择最合适的一个。CUDA镜像包含从Maxwell到Hopper（compute capability 5.0-9.0）的内核。
 
 ## 环境变量
 
@@ -28,7 +28,7 @@ Docker镜像支持以下架构：
 | APP_MODE           | backend                               | 容器的操作模式，可用选项：`server`，`backend`和`none` |
 | APP_BIND           | 0.0.0.0                               | 绑定到的接口                                 |
 | APP_PORT           | 对于`server`是`8080`，对于`backend`是`50052` | 服务器运行的端口号                              |
-| APP_MEM            | 1024                                  | 客户端可用的内存量；在CUDA模式下，这是显存量               | 
+| APP_MEM            | 1024                                  | 客户端可用的内存量；在CUDA模式下，这是显存量。对于llama.cpp b6790及更新版本的构建，该参数被忽略，rpc-server会自行检测可用内存               | 
 | APP_RPC_BACKENDS   | backend-cuda:50052,backend-cpu:50052  | 以逗号分隔的后端地址列表，容器将在server模式下尝试连接这些地址     |
 | APP_MODEL          | /app/models/TinyLlama-1.1B-q4_0.gguf  | 容器内的模型权重路径                             | 
 | APP_REPEAT_PENALTY | 1.0                                   | 重复惩罚                                   |
