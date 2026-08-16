@@ -23,6 +23,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      # Register QEMU binfmt handlers so buildx can run arm64 stages on the
+      # amd64 runner. The old multi-arch build had no such step, so foreign
+      # platforms died with "exec format error".
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm64
+
       - name: Install curl and jq
         run: sudo apt-get update -q && sudo apt-get install -qy curl jq
 
@@ -71,7 +79,7 @@ jobs:
           for tag in "${github_releases_array[@]}"; do
             if [[ ! " ${docker_hub_tags_array[*]} " =~ " $tag " ]]; then
               echo "Missing tag: $tag"
-              docker buildx build --builder=my_builder --push --platform=linux/amd64 --build-arg LLAMACPP_VERSION=${tag} --tag=${owner}/${repo}:${tag} ./llama.cpp/
+              docker buildx build --builder=my_builder --push --platform=linux/amd64,linux/arm64 --build-arg LLAMACPP_VERSION=${tag} --tag=${owner}/${repo}:${tag} ./llama.cpp/
               docker buildx build --builder=my_builder --push --platform=linux/amd64 --file ./llama.cpp/Dockerfile.cuda --build-arg LLAMACPP_VERSION=${tag} --tag=${owner}/${repo}:${tag}-cuda ./llama.cpp/
               latest_tag=$tag
             fi
@@ -80,7 +88,7 @@ jobs:
           # Tagging the latest version as 'latest'
           if [ ! -z "$latest_tag" ]; then
             echo "Tagging the latest version as 'latest': $latest_tag"
-            docker buildx build --builder=my_builder --push --platform=linux/amd64 --build-arg LLAMACPP_VERSION=${latest_tag} --tag=${owner}/${repo}:latest ./llama.cpp/
+            docker buildx build --builder=my_builder --push --platform=linux/amd64,linux/arm64 --build-arg LLAMACPP_VERSION=${latest_tag} --tag=${owner}/${repo}:latest ./llama.cpp/
             docker buildx build --builder=my_builder --push --platform=linux/amd64 --file ./llama.cpp/Dockerfile.cuda --build-arg LLAMACPP_VERSION=${latest_tag} --tag=${owner}/${repo}:cuda --tag=${owner}/${repo}:latest-cuda ./llama.cpp/
           fi
         env:

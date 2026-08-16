@@ -38,6 +38,14 @@ RUN set -xe \
  && cmake -B build -DGGML_CUDA=ON -DGGML_RPC=ON -DCMAKE_BUILD_RPATH_USE_ORIGIN=ON \
  && cmake --build build --config Release -j$(nproc)
 
+# Stage shared libraries preserving symlink structure: newer llama.cpp
+# ships versioned SONAMEs (libggml.so.0 -> libggml.so.0.x.y), and a plain
+# COPY of *.so would dereference symlinks and lose the SONAME names the
+# binaries actually load.
+RUN set -xe \
+ && mkdir -pv /app/libs \
+ && cp -av build/bin/*.so* /app/libs/
+
 
 FROM ${BASE_CUDA_RUNTIME_CONTAINER}
 WORKDIR /app
@@ -52,9 +60,13 @@ RUN set -xe \
 RUN set -xe \
  && mkdir -pv /app/models
 
-# Copy compiled tools
-COPY --from=builder /app/llama.cpp/build/bin/*.so /usr/lib/x86_64-linux-gnu
-COPY --from=builder /app/llama.cpp/build/bin/rpc-server .
+# Copy compiled tools under whatever names the build produced.
+# llama.cpp b9824 renamed rpc-server to ggml-rpc-server (#25045), so the
+# glob matches either name and the old one is kept as a symlink.
+COPY --from=builder /app/libs/ /usr/lib/x86_64-linux-gnu/
+COPY --from=builder /app/llama.cpp/build/bin/*rpc-server .
+RUN set -xe \
+ && if [ -e ggml-rpc-server ] && [ ! -e rpc-server ]; then ln -s ggml-rpc-server rpc-server; fi
 COPY --from=builder /app/llama.cpp/build/bin/llama-cli .
 COPY --from=builder /app/llama.cpp/build/bin/llama-embedding .
 COPY --from=builder /app/llama.cpp/build/bin/llama-server .
