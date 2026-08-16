@@ -4,23 +4,35 @@ on:
   schedule:
     - cron: '0 0 * * *' # every day at midnight
 
+permissions:
+  contents: read
+  actions: write # required by the keepalive step below
+
 jobs:
   compare_tags:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v7
+
+      # GitHub disables scheduled workflows after 60 days without repository
+      # activity. Re-enabling the workflow on every run resets that timer,
+      # otherwise published images silently go stale (see issue #3).
+      - name: Keepalive
+        run: gh api --method PUT "repos/${{ github.repository }}/actions/workflows/build-and-push.yml/enable"
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Install curl and jq
-        run: sudo apt-get install curl jq
+        run: sudo apt-get update -q && sudo apt-get install -qy curl jq
 
       - name: Get Docker Hub tags
         id: docker_hub_tags
         run: |
-          url="https://registry.hub.docker.com/v2/repositories/${owner}/${repo}/tags/"
-          result=$(curl -s "$url" | jq '."results"[]["name"]' | grep -v "latest" | grep -v "cuda")
-          sorted_result=$(echo "$result" | sed 's/\"//g' | sort -V | tr '\n' ',')
-          echo "::set-output name=result::$sorted_result"
+          url="https://registry.hub.docker.com/v2/repositories/${owner}/${repo}/tags/?page_size=100"
+          result=$(curl -s "$url" | jq -r '.results[].name' | grep -v "latest" | grep -v "cuda")
+          sorted_result=$(echo "$result" | sort -V | tr '\n' ',')
+          echo "result=$sorted_result" >> "$GITHUB_OUTPUT"
         env:
           owner: evilfreelancer
           repo: llama.cpp-rpc
@@ -29,9 +41,9 @@ jobs:
         id: github_releases
         run: |
           url="https://api.github.com/repos/${owner}/${repo}/releases"
-          result=$(curl -L -s "$url" | jq '.[]["name"]' | grep '^b*')
-          sorted_result=$(echo "$result" | sed 's/\"//g' | sort -V | tail -n 2 | tr '\n' ',')
-          echo "::set-output name=result::$sorted_result"
+          result=$(curl -L -s "$url" | jq -r '.[].name' | grep -E '^b[0-9]+$')
+          sorted_result=$(echo "$result" | sort -V | tail -n 2 | tr '\n' ',')
+          echo "result=$sorted_result" >> "$GITHUB_OUTPUT"
         env:
           owner: ggerganov
           repo: llama.cpp
