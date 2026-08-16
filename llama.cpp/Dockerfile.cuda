@@ -36,16 +36,22 @@ RUN ln -s /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/lib
 # GGML_NATIVE=OFF is critical here: CI runners have no GPU, so a "native"
 # build makes nvcc silently fall back to the lowest supported arch (sm_52
 # only) and the shipped kernels are crippled or unusable on real GPUs
-# (issue #2, GTX 1080). With the flag off, ggml picks its curated list of
-# CUDA architectures (Maxwell..Hopper for CUDA 12.x). It also keeps the
-# CPU part of the build off the runner's ISA (AVX512 -> SIGILL elsewhere);
-# GGML_BACKEND_DL + GGML_CPU_ALL_VARIANTS restore CPU performance via
-# runtime-selected variant modules, mirroring upstream .devops images,
+# (issue #2). It also keeps the CPU part of the build off the runner's
+# ISA (AVX512 -> SIGILL elsewhere); GGML_BACKEND_DL +
+# GGML_CPU_ALL_VARIANTS restore CPU performance via runtime-selected
+# variant modules, mirroring upstream .devops images,
 # --allow-shlib-undefined comes from the same upstream cmake invocation.
+#
+# The default architecture list is Ampere and newer (RTX 30xx/40xx, A100,
+# Hopper; Blackwell JIT-compiles the 90 PTX): every extra arch multiplies
+# nvcc time and the full ggml list does not fit the daily CI job. For an
+# older card rebuild with e.g. --build-arg CUDA_ARCHITECTURES=61-real
+ARG CUDA_ARCHITECTURES="80-virtual;86-real;89-real;90-virtual"
 RUN set -xe \
  && export LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs/:$LD_LIBRARY_PATH \
  && cmake -B build -DGGML_CUDA=ON -DGGML_RPC=ON -DCMAKE_BUILD_RPATH_USE_ORIGIN=ON \
       -DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON \
+      -DCMAKE_CUDA_ARCHITECTURES="$CUDA_ARCHITECTURES" \
       -DCMAKE_EXE_LINKER_FLAGS=-Wl,--allow-shlib-undefined \
  && if cmake --build build --target help | grep -q ggml-rpc-server; then RPC_TARGET=ggml-rpc-server; else RPC_TARGET=rpc-server; fi \
  && BACKEND_TARGETS=$(cmake --build build --target help | grep -oE 'ggml-[a-zA-Z0-9._-]+' | sort -u | tr '\n' ' ') \

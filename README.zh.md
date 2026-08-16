@@ -19,7 +19,7 @@ Docker镜像支持以下架构：
 * 仅CPU - amd64, arm64
 * CUDA - amd64
 
-不再构建32位arm/v7，llama.cpp已不再支持该架构。镜像中的二进制文件是可移植的。在amd64上，镜像内置多个针对不同代处理器的CPU后端变体，启动时自动选择最合适的一个。CUDA镜像包含从Maxwell到Hopper（compute capability 5.0-9.0）的内核。
+不再构建32位arm/v7，llama.cpp已不再支持该架构。镜像中的二进制文件是可移植的。在amd64上，镜像内置多个针对不同代处理器的CPU后端变体，启动时自动选择最合适的一个。CUDA镜像包含Ampere及更新架构（RTX 30xx/40xx、A100、Hopper，compute capability 8.0+）的内核。对于更旧的显卡，请使用`--build-arg CUDA_ARCHITECTURES=61-real`（Pascal示例）自行构建镜像。
 
 ## 环境变量
 

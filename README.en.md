@@ -21,7 +21,7 @@ Docker images are built with support for the following architectures:
 * **CPU-only** - amd64, arm64
 * **CUDA** - amd64
 
-32-bit arm/v7 is not built, llama.cpp no longer supports this architecture. Binaries in the images are portable. On amd64 the image ships CPU backend variants for different processor generations and the best one is picked at runtime. The CUDA image ships kernels for architectures from Maxwell to Hopper (compute capability 5.0-9.0).
+32-bit arm/v7 is not built, llama.cpp no longer supports this architecture. Binaries in the images are portable. On amd64 the image ships CPU backend variants for different processor generations and the best one is picked at runtime. The CUDA image ships kernels for Ampere and newer (RTX 30xx/40xx, A100, Hopper, compute capability 8.0+). For an older card build the image yourself with `--build-arg CUDA_ARCHITECTURES=61-real` (Pascal example).
 
 ## Environment Variables
 
