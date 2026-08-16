@@ -32,7 +32,8 @@ ARG TARGETARCH
 RUN set -xe \
  && if [ "$TARGETARCH" = "arm64" ]; then EXTRA_FLAGS="-DGGML_NATIVE=OFF"; else EXTRA_FLAGS=""; fi \
  && cmake -B build -DGGML_RPC=ON -DCMAKE_BUILD_RPATH_USE_ORIGIN=ON $EXTRA_FLAGS \
- && cmake --build build --config Release -j$(nproc)
+ && if cmake --build build --target help | grep -q ggml-rpc-server; then RPC_TARGET=ggml-rpc-server; else RPC_TARGET=rpc-server; fi \
+ && cmake --build build --config Release -j$(nproc) --target llama-server llama-cli llama-embedding "$RPC_TARGET"
 
 # Stage shared libraries preserving symlink structure: newer llama.cpp
 # ships versioned SONAMEs (libggml.so.0 -> libggml.so.0.x.y), and a plain

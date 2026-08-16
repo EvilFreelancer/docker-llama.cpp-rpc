@@ -36,7 +36,8 @@ RUN ln -s /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/lib
 RUN set -xe \
  && export LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs/:$LD_LIBRARY_PATH \
  && cmake -B build -DGGML_CUDA=ON -DGGML_RPC=ON -DCMAKE_BUILD_RPATH_USE_ORIGIN=ON \
- && cmake --build build --config Release -j$(nproc)
+ && if cmake --build build --target help | grep -q ggml-rpc-server; then RPC_TARGET=ggml-rpc-server; else RPC_TARGET=rpc-server; fi \
+ && cmake --build build --config Release -j$(nproc) --target llama-server llama-cli llama-embedding "$RPC_TARGET"
 
 # Stage shared libraries preserving symlink structure: newer llama.cpp
 # ships versioned SONAMEs (libggml.so.0 -> libggml.so.0.x.y), and a plain
