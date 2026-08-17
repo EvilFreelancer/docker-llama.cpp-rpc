@@ -1,60 +1,94 @@
 name: Check for new releases, build and push containers
+
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 0 * * *' # every day at midnight
+    # Once a week: a full run rebuilds several CUDA/arm64 images and takes
+    # hours, a daily cadence is wasteful and risks the 6h per-job limit.
+    # Sunday 05:30 UTC, off the top of the hour to dodge the scheduler
+    # rush. Weekly still resets the 60-day inactivity timer via keepalive.
+    - cron: '30 5 * * 0'
 
 permissions:
   contents: read
   actions: write # required by the keepalive step below
 
-jobs:
-  compare_tags:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
+env:
+  IMAGE: evilfreelancer/llama.cpp-rpc
 
+jobs:
+  # 1. Decide what to build. Emits a JSON list of llama.cpp release tags that
+  #    exist upstream but are missing from Docker Hub, plus the newest of them
+  #    (which also gets the moving latest/cuda tags). Keepalive lives here so
+  #    the 60-day inactivity timer is reset even on weeks with nothing to build.
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      tags: ${{ steps.compute.outputs.tags }}
+      latest_tag: ${{ steps.compute.outputs.latest_tag }}
+    steps:
       # GitHub disables scheduled workflows after 60 days without repository
-      # activity. Re-enabling the workflow on every run resets that timer,
-      # otherwise published images silently go stale (see issue #3).
+      # activity. Re-enabling on every run resets that timer, otherwise
+      # published images silently go stale (see issue #3).
       - name: Keepalive
         run: gh api --method PUT "repos/${{ github.repository }}/actions/workflows/build-and-push.yml/enable"
         env:
           GH_TOKEN: ${{ github.token }}
 
-      # Register QEMU binfmt handlers so buildx can run arm64 stages on the
-      # amd64 runner. The old multi-arch build had no such step, so foreign
-      # platforms died with "exec format error".
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
-        with:
-          platforms: arm64
-
-      - name: Install curl and jq
-        run: sudo apt-get update -q && sudo apt-get install -qy curl jq
-
-      - name: Get Docker Hub tags
-        id: docker_hub_tags
-        run: |
-          url="https://registry.hub.docker.com/v2/repositories/${owner}/${repo}/tags/?page_size=100"
-          result=$(curl -s "$url" | jq -r '.results[].name' | grep -v "latest" | grep -v "cuda")
-          sorted_result=$(echo "$result" | sort -V | tr '\n' ',')
-          echo "result=$sorted_result" >> "$GITHUB_OUTPUT"
+      - name: Compute missing tags
+        id: compute
         env:
-          owner: evilfreelancer
-          repo: llama.cpp-rpc
-
-      - name: Get GitHub Releases
-        id: github_releases
+          HUB_OWNER: evilfreelancer
+          HUB_REPO: llama.cpp-rpc
+          SRC_OWNER: ggerganov
+          SRC_REPO: llama.cpp
         run: |
-          url="https://api.github.com/repos/${owner}/${repo}/releases"
-          result=$(curl -L -s "$url" | jq -r '.[].name' | grep -E '^b[0-9]+$')
-          sorted_result=$(echo "$result" | sort -V | tail -n 2 | tr '\n' ',')
-          echo "result=$sorted_result" >> "$GITHUB_OUTPUT"
-        env:
-          owner: ggerganov
-          repo: llama.cpp
+          set -euo pipefail
+          # Base tags already on Docker Hub (drop the latest/cuda aliases).
+          hub=$(curl -s "https://registry.hub.docker.com/v2/repositories/${HUB_OWNER}/${HUB_REPO}/tags/?page_size=100" \
+            | jq -r '.results[].name' | grep -vE 'latest|cuda' || true)
+          # Two newest upstream releases named bNNNN.
+          rel=$(curl -Ls "https://api.github.com/repos/${SRC_OWNER}/${SRC_REPO}/releases" \
+            | jq -r '.[].name' | grep -E '^b[0-9]+$' | sort -V | tail -n 2)
+
+          missing=()
+          for t in $rel; do
+            grep -qxF "$t" <<< "$hub" || missing+=("$t")
+          done
+
+          if [ ${#missing[@]} -eq 0 ]; then
+            echo "tags=[]" >> "$GITHUB_OUTPUT"
+            echo "latest_tag=" >> "$GITHUB_OUTPUT"
+            echo "Nothing to build, all recent releases are already published."
+            exit 0
+          fi
+
+          latest_tag=$(printf '%s\n' "${missing[@]}" | sort -V | tail -n1)
+          tags_json=$(printf '%s\n' "${missing[@]}" | jq -R . | jq -cs .)
+          echo "tags=${tags_json}" >> "$GITHUB_OUTPUT"
+          echo "latest_tag=${latest_tag}" >> "$GITHUB_OUTPUT"
+          echo "Missing tags: ${missing[*]} (newest: ${latest_tag})"
+
+  # 2. Build the CPU image once per (tag, architecture) on a native runner and
+  #    push it by digest only. No QEMU: arm64 compiles on an arm64 host, which
+  #    is what used to make this the slowest part of the run.
+  build-cpu:
+    needs: plan
+    if: ${{ needs.plan.outputs.tags != '[]' }}
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        tag: ${{ fromJSON(needs.plan.outputs.tags) }}
+        platform:
+          - { name: amd64, runner: ubuntu-24.04,     docker: linux/amd64 }
+          - { name: arm64, runner: ubuntu-24.04-arm, docker: linux/arm64 }
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -62,35 +96,122 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Compare tags
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ./llama.cpp
+          platforms: ${{ matrix.platform.docker }}
+          build-args: LLAMACPP_VERSION=${{ matrix.tag }}
+          # push-by-digest publishes a single-arch image with no tag; the merge
+          # job stitches the per-arch digests into one multi-arch tag. Disable
+          # provenance so the pushed reference is a plain image, not an index
+          # (imagetools would otherwise refuse to merge it).
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          provenance: false
+
+      - name: Export digest
         run: |
-          docker_hub_tags="${{ steps.docker_hub_tags.outputs.result }}"
-          github_releases="${{ steps.github_releases.outputs.result }}"
+          mkdir -p /tmp/digests
+          # Strip the sha256: prefix; the merge job re-adds it via printf.
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
 
-          IFS=',' read -r -a docker_hub_tags_array <<< "$docker_hub_tags"
-          IFS=',' read -r -a github_releases_array <<< "$github_releases"
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digest-cpu-${{ matrix.tag }}-${{ matrix.platform.name }}
+          path: /tmp/digests/*
+          retention-days: 1
+          if-no-files-found: error
 
-          docker buildx create --name my_builder --driver=docker-container
+  # 3. Combine the per-arch digests of one tag into a single multi-arch
+  #    manifest. The newest tag additionally gets the moving `latest` alias,
+  #    created as a pointer here instead of rebuilt from scratch.
+  merge-cpu:
+    needs: [plan, build-cpu]
+    if: ${{ needs.plan.outputs.tags != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tag: ${{ fromJSON(needs.plan.outputs.tags) }}
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digest-cpu-${{ matrix.tag }}-*
+          merge-multiple: true
 
-          # Initialize a variable to track the latest tag
-          latest_tag=""
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
 
-          # Build and push images with missed tag
-          for tag in "${github_releases_array[@]}"; do
-            if [[ ! " ${docker_hub_tags_array[*]} " =~ " $tag " ]]; then
-              echo "Missing tag: $tag"
-              docker buildx build --builder=my_builder --push --platform=linux/amd64,linux/arm64 --build-arg LLAMACPP_VERSION=${tag} --tag=${owner}/${repo}:${tag} ./llama.cpp/
-              docker buildx build --builder=my_builder --push --platform=linux/amd64 --file ./llama.cpp/Dockerfile.cuda --build-arg LLAMACPP_VERSION=${tag} --tag=${owner}/${repo}:${tag}-cuda ./llama.cpp/
-              latest_tag=$tag
-            fi
-          done
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-          # Tagging the latest version as 'latest'
-          if [ ! -z "$latest_tag" ]; then
-            echo "Tagging the latest version as 'latest': $latest_tag"
-            docker buildx build --builder=my_builder --push --platform=linux/amd64,linux/arm64 --build-arg LLAMACPP_VERSION=${latest_tag} --tag=${owner}/${repo}:latest ./llama.cpp/
-            docker buildx build --builder=my_builder --push --platform=linux/amd64 --file ./llama.cpp/Dockerfile.cuda --build-arg LLAMACPP_VERSION=${latest_tag} --tag=${owner}/${repo}:cuda --tag=${owner}/${repo}:latest-cuda ./llama.cpp/
+      - name: Create manifest list
+        working-directory: /tmp/digests
+        run: |
+          set -euo pipefail
+          args=(-t "${IMAGE}:${{ matrix.tag }}")
+          if [ "${{ matrix.tag }}" = "${{ needs.plan.outputs.latest_tag }}" ]; then
+            args+=(-t "${IMAGE}:latest")
           fi
-        env:
-          owner: evilfreelancer
-          repo: llama.cpp-rpc
+          for digest in *; do
+            args+=("${IMAGE}@sha256:${digest}")
+          done
+          docker buildx imagetools create "${args[@]}"
+          docker buildx imagetools inspect "${IMAGE}:${{ matrix.tag }}"
+
+  # 4. CUDA image is amd64-only, so it needs no merge: build on the amd64
+  #    runner and push the tags directly. The newest tag also moves the
+  #    cuda / latest-cuda aliases.
+  build-cuda:
+    needs: plan
+    if: ${{ needs.plan.outputs.tags != '[]' }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        tag: ${{ fromJSON(needs.plan.outputs.tags) }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Compute CUDA tags
+        id: cudatags
+        run: |
+          set -euo pipefail
+          {
+            echo 'tags<<EOF'
+            echo "${IMAGE}:${{ matrix.tag }}-cuda"
+            if [ "${{ matrix.tag }}" = "${{ needs.plan.outputs.latest_tag }}" ]; then
+              echo "${IMAGE}:cuda"
+              echo "${IMAGE}:latest-cuda"
+            fi
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build and push CUDA image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./llama.cpp
+          file: ./llama.cpp/Dockerfile.cuda
+          platforms: linux/amd64
+          build-args: LLAMACPP_VERSION=${{ matrix.tag }}
+          tags: ${{ steps.cudatags.outputs.tags }}
+          push: true
+          provenance: false
